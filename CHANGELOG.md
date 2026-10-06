@@ -2,6 +2,7 @@
 
 ## 1.1.3 — October 6, 2026
 
+- In-game “What’s new” patch notes page (`src/updates.js`), opened from the menu banner, the footer or a link on phones; the banner highlights unseen updates.
 - Fixed legs bending sideways after respawning from a ragdoll (leftover knee twist); every joint the ragdoll touched is reset.
 - Ragdoll feels less like jelly: muscle tone (slightly bent arms, legs under the hips, firmer neck), more solver iterations, more damping and a gentler launch.
 

@@ -320,3 +320,11 @@ h1,h2,h3,h4{font-family:var(--display);font-weight:400;letter-spacing:.5px;margi
 .earn-note{text-align:center;font-size:14px;margin:4px 0 10px;min-height:20px}.earn-note b{color:var(--accent2)}
 .link{color:var(--accent);text-decoration:underline;font-weight:900}
 @keyframes glow{50%{box-shadow:0 3px 0 rgba(0,0,0,.3),0 0 18px 2px rgba(255,210,94,.7)}}
+
+.menu-news{text-align:left;cursor:pointer;color:inherit;font:inherit;font-weight:800}.menu-news:hover{border-color:var(--accent)}.menu-news .more{display:block;margin-top:4px;font-size:12px;color:var(--accent)}
+.menu-news.unseen{border-color:var(--accent2)}.menu-news.unseen b{animation:glow 1.6s infinite}
+.text-link{color:var(--accent);text-decoration:underline;font-weight:900;font-size:12px;letter-spacing:1px;padding:0}
+.updates{display:grid;gap:10px}.update{padding:14px 16px;border-radius:16px;background:rgba(255,255,255,.05)}.update.latest{background:rgba(255,255,255,.09);outline:2px solid var(--accent)}
+.update header{display:flex;align-items:baseline;gap:10px;margin:0 0 6px;flex-wrap:wrap}.update header b{font-family:var(--display);font-weight:400;font-size:22px;color:var(--accent)}.update header span{font-weight:900;font-size:16px}.update header small{margin-left:auto;opacity:.6;font-size:12px}
+.update ul{margin:0;padding-left:18px;display:grid;gap:4px;font-weight:700;font-size:14px;line-height:1.4;opacity:.92}
+.mobile-only{display:none}@media (max-width:900px){.mobile-only{display:block;align-self:flex-start}}

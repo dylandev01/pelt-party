@@ -1,7 +1,7 @@
 import {MAPS,makeMap,spawnPoint} from './maps.mjs';
 export {MAPS,makeMap,spawnPoint};
 
-export const BUILD = '1.1.0';
+export const BUILD = '1.1.3';
 export const TITLE = 'Pelt Party';
 
 // Each season re-skins the whole game: ammo, sky, ground, weather, music key and props.

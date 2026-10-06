@@ -1,5 +1,6 @@
 import {BUILD,SEASONS,CHARACTERS,COSMETICS,MAPS,POWERS} from '../shared/content.mjs';
 import {FPS_CAPS} from './settings.js';
+import {UPDATES,LATEST} from './updates.js';
 import {levelOf,xpFor,dailyFor,weeklyFor,ACHIEVEMENTS} from '../shared/progress.mjs';
 export {levelOf};
 
@@ -15,7 +16,7 @@ function profileCard(profile){
   const c=CHARACTERS.find(c=>c.id===profile.character);
   return `<button class="profile-card" data-action="account"><span class="avatar" style="--c:${c?.color}">${esc(profile.name[0]||'?')}</span><span class="who"><b>${esc(profile.name)}</b><small>${profile.account?`LEVEL ${lvl} · SAVED TO ACCOUNT ✓`:`LEVEL ${lvl} · GUEST · SIGN IN TO SAVE`}</small><span class="xp"><i style="width:${pct}%"></i></span></span><span class="coins">◈ ${profile.coins}</span></button>`;
 }
-export function menu({profile,season,muted,badge=0}){
+export function menu({profile,season,muted,badge=0,unseen=false}){
   return `<main class="menu">
     <nav class="menu-left">
       ${logo(season)}
@@ -28,10 +29,11 @@ export function menu({profile,season,muted,badge=0}){
         <div class="menu-row">${btn('account',profile.account?'ACCOUNT':'SIGN IN / UP','menu-mini'+(profile.account?'':' accent'))}${btn('settings','SETTINGS','menu-mini')}${btn('how','HOW TO PLAY','menu-mini')}</div>
       </div>
       ${profileCard(profile)}
+      ${btn('updates',`What’s new in v${LATEST.version} ▸`,'text-link mobile-only')}
     </nav>
     <div class="menu-top">${btn('vault',`${SEASON_ICON[season]} ${SEASONS[season].label}`,'chip')}${btn('mute',muted?'🔇':'🔊','chip icon','aria-label="Toggle sound"')}</div>
-    <div class="menu-news"><b>NEW</b> Dive, slide and throw up walls. 4 new maps · 10 chibis · up to 20 players.</div>
-    <footer class="menu-foot">v${BUILD} · no login · runs in your browser</footer>
+    <button class="menu-news ${unseen?'unseen':''}" data-action="updates"><b>NEW · v${LATEST.version}</b> ${esc(LATEST.short)} <span class="more">See what’s new ▸</span></button>
+    <footer class="menu-foot">v${BUILD} · free · plays in your browser · ${btn('updates','Patch notes','text-link')}</footer>
     ${season!=='halloween'?btn('season:halloween','🎃 Play the Halloween Edition','halloween-link'):''}
   </main>`;
 }
@@ -165,4 +167,8 @@ export function leaderboardPanel(rows,error,me){
   const body=error?`<p class="fine">${esc(error)}</p>`:!rows?'<div class="spinner"></div>':!rows.length?'<p class="fine">No ranked players yet. Be the first!</p>'
     :`<table class="ranks"><tr><th>#</th><th>PLAYER</th><th>LVL</th><th>WINS</th><th>SPLATS</th></tr>${rows.map((r,i)=>`<tr class="${me&&r.display.toLowerCase()===me.toLowerCase()?'me':''}"><td>${i+1}</td><td><i style="background:${CHARACTERS.find(c=>c.id===r.character)?.color||'#fff'}"></i>${esc(r.display)}</td><td>${r.level}</td><td>${r.wins}</td><td>${r.splats}</td></tr>`).join('')}</table>`;
   return panel('leaderboard','Global ranks',body+(me?'':'<p class="fine">Sign in to appear on the board.</p>'),{sub:'TOP PLAYERS BY XP',wide:true});
+}
+
+export function updatesPanel(){
+  return panel('updates','What’s new',`<div class="updates">${UPDATES.map((u,i)=>`<article class="update ${i===0?'latest':''}"><header><b>v${u.version}</b><span>${esc(u.title)}</span><small>${esc(u.date)}</small></header><ul>${u.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul></article>`).join('')}</div>`,{sub:'PATCH NOTES'});
 }
