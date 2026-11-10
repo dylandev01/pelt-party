@@ -11,6 +11,7 @@ import {relativeMove,driveVelocity,diveSpeed,slideSpeed,cameraBasis} from '../sh
 import {RemoteTrack,CODE,safeName,flagsOf} from '../shared/protocol.mjs';
 import {connect,api,profileToken} from './network.js';
 import * as Acct from './account.js';
+import {LATEST} from './updates.js';
 
 const $=s=>document.querySelector(s),app=$('#app'),hudRoot=$('#hud-root'),canvas=$('#world');
 const params=new URLSearchParams(location.search),token=profileToken(),testMode=params.get('test')==='1',touch=matchMedia('(pointer: coarse)').matches||params.has('touch');
@@ -53,7 +54,8 @@ function startDemo(){
   demo=new Room({season,map,now:t,emit:m=>{if(m.t!=='fx'||screen==='play')return;world.fx(m);if(m.kind==='splat'&&demo){const v=demo.players.find(p=>p.slot===m.slot),k=demo.players.find(p=>p.slot===m.by);if(v)world.ragdoll(m.slot,v,k);}}});demo.botsTo(8,t,'regular');demo.start(t-4000);demo.step(t);
   world.clearActors();world.sync(demo,-1);world.cameraReady=false;world.hero(profile);
 }
-const menuHtml=()=>UI.menu({profile,season,muted:settings.muted,badge:Acct.claimable(Acct.session.view)});
+const seenUpdate=()=>{try{return localStorage.getItem('pelt-seen-update')===LATEST.version;}catch{return true;}};
+const menuHtml=()=>UI.menu({profile,season,muted:settings.muted,badge:Acct.claimable(Acct.session.view),unseen:!seenUpdate()});
 function refreshMenu(){if(screen==='menu'&&!panel)app.innerHTML=menuHtml();}
 function showMenu(){
   screen='menu';panel=null;document.body.className=`menu-screen s-${season}`;hudRoot.innerHTML='';hud=null;
@@ -67,6 +69,7 @@ function openPanel(kind){
   if(kind==='settings')wrap.innerHTML=UI.settingsPanel(settings,settingsTab,{hz:refreshHz()});
   if(kind==='how')wrap.innerHTML=UI.howPanel(touch);
   if(kind==='vault')wrap.innerHTML=UI.vaultPanel(season);
+  if(kind==='updates'){wrap.innerHTML=UI.updatesPanel();try{localStorage.setItem('pelt-seen-update',LATEST.version);}catch{}}
   if(kind==='pause')wrap.innerHTML=UI.pausePanel();
   if(kind==='error')wrap.innerHTML=UI.errorPanel(openPanel.error||'Something went wrong.');
   if(kind==='account')wrap.innerHTML=UI.accountPanel({mode:openPanel.mode||'login',view:Acct.signedIn()?Acct.session.view:null});
@@ -78,7 +81,7 @@ function openPanel(kind){
 function closePanel(){
   const was=panel;panel=null;$('#panel')?.remove();
   if(was==='locker'){document.body.classList.remove('locker-open');commitName();world.mode=screen==='play'?'play':'menu';}
-  if(['locker','account','challenges'].includes(was))refreshMenu();
+  if(['locker','account','challenges','updates'].includes(was))refreshMenu();
   if(screen==='play'&&state?.phase!=='results'){paused=false;if(!touch)lockPointer();}
 }
 function commitName(){if(profile.account)return true;const input=$('#name');if(!input)return true;const n=safeName(input.value);if(!n){toast('Pick a nickname with letters and numbers.');return false;}profile.name=n;persist();return true;}
@@ -213,6 +216,7 @@ async function action(a,el){
   if(a==='acct-logout'){await Acct.logout();useAccount(null);closePanel();world.hero(profile);refreshMenu();toast('Logged out. Playing as a guest.');return;}
   if(a==='acct-password'){try{await Acct.changePassword($('#pw-current').value,$('#pw-next').value);toast('Password updated. Other devices were signed out.');openPanel('account');}catch(e){toast(e.message);}return;}
   if(a.startsWith('claim:')){const id=a.slice(6);el&&(el.disabled=true);try{const r=await Acct.claim(id);useAccount(r.profile);sound.play('power');toast(`+◈${r.claimed.coins}${r.claimed.xp?` · +${r.claimed.xp} XP`:''}${r.claimed.hat?' · new hat unlocked!':''}${r.claimed.levels?' · LEVEL UP!':''}`);if(panel==='challenges')openPanel('challenges');}catch(e){toast(e.message);if(el)el.disabled=false;}return;}
+  if(a==='updates'){openPanel('updates');return;}
   if(['join','settings','how','vault','locker'].includes(a)){if(a==='locker'&&screen!=='menu')return;openPanel(a);return;}
   if(a==='play'){openPanel('play');return;}
   if(a==='pause'){openPanel('pause');paused=!!room;return;}
