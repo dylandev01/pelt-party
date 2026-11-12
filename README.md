@@ -263,3 +263,25 @@ A full manual production signoff requires exercising these tests on real browser
 - [ ] Bitrate sliders do not disrupt the active stream.
 - [ ] All production secrets are outside the repository; production config validates them.
 - [ ] Idle/absolute expiration and end-room operations disconnect peers.
+
+## Temporary TURN credentials for testing (external provider)
+
+The backend accepts opaque third-party TURN credentials without confusing them
+with Coturn's REST shared signing secret. Configure these four environment
+variables on the Render service (never in Git):
+
+- `TURN_STATIC_URLS`: comma-separated list of `turn:` and/or `turns:` URIs.
+- `TURN_STATIC_USERNAME`: provider-issued username.
+- `TURN_STATIC_CREDENTIAL`: provider-issued password/credential.
+- `TURN_STATIC_EXPIRES_AT`: absolute Unix expiration timestamp (seconds).
+
+The authenticated `/api/ice-config` route supplies the provider credentials to
+the browser only while unexpired, with `turnStatus: "temporary"` and
+`expiresAt`. After expiry, new peer connections do **not** receive the expired
+credential (they may attempt STUN-only connections if test mode is enabled).
+An existing TURN relay allocation is not guaranteed to continue after expiry.
+
+To renew, obtain **new** provider credentials and replace all four Render
+environment settings; the app cannot renew temporary evaluation credentials
+without a provider issuance API. For production use, configure a managed TURN
+provider with automated issuance or your own Coturn REST shared secret.
