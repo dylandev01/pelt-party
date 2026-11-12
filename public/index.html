@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#09090d">
+  <meta name="description" content="A private theater for two. Share your screen and its available playback audio directly through WebRTC.">
+  <title>Private Cinema — A theater for two</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script src="/socket.io/socket.io.js" defer></script>
+  <script type="module" src="/js/main.js"></script>
+</head>
+<body>
+  <div class="ambient ambient-left" aria-hidden="true"></div>
+  <div class="ambient ambient-right" aria-hidden="true"></div>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="Private Cinema home">
+      <span class="brand-icon" aria-hidden="true"><span class="brand-dot"></span></span>
+      <span>PRIVATE<span class="brand-accent">CINEMA</span></span>
+    </a>
+    <span class="header-right"><span class="privacy-dot"></span> A PRIVATE THEATER FOR TWO</span>
+  </header>
+  <main>
+    <section id="landing" class="landing page" aria-labelledby="heroTitle">
+      <div class="eyebrow"><span class="spark"></span> YOUR SCREEN. YOUR SPACE.</div>
+      <h1 id="heroTitle">A little more<br><em>movie magic.</em></h1>
+      <p class="hero-description">Distance shouldn't get in the way of movie night. Create a private screening room, share a tab, and enjoy the moment together.</p>
+      <div class="create-panel">
+        <label class="field-label" for="createPassword">ROOM PASSWORD <span class="optional">OPTIONAL</span></label>
+        <input id="createPassword" type="text" autocomplete="off" maxlength="128" placeholder="We'll generate a secure one for you">
+        <button id="createRoom" class="button button-primary button-large" type="button"><span>CREATE YOUR PRIVATE THEATER</span><span aria-hidden="true">↗</span></button>
+        <p class="quiet">No account. No recordings. Just your own little cinema.</p>
+      </div>
+      <div class="landing-benefits" aria-label="Highlights">
+        <div><span class="benefit-icon">◇</span><strong>Just the two of you</strong><small>One host, one guest</small></div>
+        <div><span class="benefit-icon">⌁</span><strong>Direct streaming</strong><small>Encrypted WebRTC video</small></div>
+        <div><span class="benefit-icon">▣</span><strong>Full screen magic</strong><small>Your favorite big-screen feeling</small></div>
+      </div>
+    </section>
+
+    <section id="host" class="room-page page" hidden aria-label="Host room">
+      <div class="section-heading">
+        <div><div class="eyebrow">YOUR PRIVATE SCREENING</div><h1>Director's room <span class="heading-glyph">✦</span></h1><p>Your screen, their seat. Share a movie tab to begin.</p></div>
+        <div class="room-meta"><span class="meta-indicator"></span><span id="hostSignal">Connecting to room…</span></div>
+      </div>
+      <div class="room-grid">
+        <div class="theater-column">
+          <div class="theater host-theater">
+            <div class="theater-top"><span class="theater-chip"><span class="chip-dot"></span> HOST STUDIO</span><span id="hostConnection" class="theater-info">Waiting for viewer</span></div>
+            <div class="stage-center" id="hostStage">
+              <div id="hostPlaceholder" class="stage-placeholder"><div class="screen-icon">▶</div><h2>The screen is yours.</h2><p>Select a movie tab, enable tab audio, and let the show begin.</p></div>
+              <video id="hostPreview" autoplay playsinline muted hidden aria-label="Muted preview of shared screen"></video>
+              <div id="previewHidden" class="preview-hidden" hidden><span>◈</span><p>Preview hidden — your stream may still be live</p></div>
+            </div>
+            <div class="theater-bottom"><span id="hostStatusPill" class="status-pill"><span class="status-led"></span> NOT SHARING</span><span id="hostResolution">—</span></div>
+          </div>
+          <div id="hostWarning" class="warning" role="alert" hidden></div>
+          <div class="control-surface">
+            <div class="control-heading"><span>SCREEN & AUDIO</span><span>Share a tab for the best sound compatibility</span></div>
+            <div class="host-actions">
+              <button id="startSharing" class="button button-primary" type="button">▶ &nbsp; Start sharing</button>
+              <button id="restartSharing" class="button button-secondary" type="button" disabled>↺ &nbsp; Change source</button>
+              <button id="stopSharing" class="button button-secondary" type="button" disabled>■ &nbsp; Stop</button>
+              <button id="togglePreview" class="button button-quiet" type="button" disabled>Show preview</button>
+            </div>
+          </div>
+          <div class="control-surface quality-surface">
+            <div class="control-heading"><span>STREAM QUALITY</span><span>Bitrate ceiling, not measured speed</span></div>
+            <div class="quality-row"><label for="qualityPreset">Quality preset</label><select id="qualityPreset"><option value="2000000">Data saver · 2 Mbps</option><option value="4000000">Balanced · 4 Mbps</option><option value="8000000">High · 8 Mbps</option><option value="12000000">Ultra · 12 Mbps</option><option value="10000000" selected>Custom · 10 Mbps</option></select></div>
+            <div class="quality-row"><label for="bitrateSlider">Max video bitrate</label><output id="bitrateValue" for="bitrateSlider">10.0 Mbps</output></div>
+            <input id="bitrateSlider" type="range" min="2000000" max="12000000" value="10000000" step="500000" aria-label="Maximum video bitrate">
+            <div class="range-labels"><span>2 Mbps</span><span>12 Mbps</span></div>
+          </div>
+        </div>
+        <aside class="side-column">
+          <div class="side-card invitation-card"><div class="side-label">01 / INVITATION</div><h2>A seat for someone special.</h2><p>Send the link and password separately. Your room holds one guest.</p>
+            <label for="inviteLink">PRIVATE INVITE LINK</label><div class="copy-field"><input id="inviteLink" readonly aria-label="Invitation link"><button id="copyLink" class="small-copy" type="button">Copy</button></div>
+            <label for="roomPassword">ROOM PASSWORD</label><div class="copy-field"><input id="roomPassword" type="text" readonly placeholder="Only displayed at room creation" aria-label="Room password"><button id="copyPassword" class="small-copy" type="button" disabled>Copy</button></div>
+            <p class="hint">The password is only shown when the room is created. If you refreshed, create a new room for a new password.</p>
+          </div>
+          <div class="side-card viewer-card"><div class="side-label">02 / YOUR GUEST</div><div class="guest-info"><div class="guest-avatar">✦</div><div><strong id="viewerPresence">Waiting for your guest</strong><p id="viewerPresenceDetail">Their seat is ready whenever they are.</p></div></div></div>
+          <div class="side-card utility-card"><div class="side-label">03 / THEATER TOOLS</div><button id="hostStatsToggle" class="utility-item" type="button">⌁ <span>Stats for Nerds</span> <span class="utility-chevron">↗</span></button><button id="endRoom" class="utility-item danger" type="button">× <span>End this room</span> <span class="utility-chevron">↗</span></button></div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="viewer" class="room-page page" hidden aria-label="Viewer room">
+      <div class="section-heading viewer-heading"><div><div class="eyebrow">YOU'VE BEEN INVITED</div><h1>Welcome to movie night<span class="heading-glyph">.</span></h1><p>Your private front-row seat is ready.</p></div><div class="room-meta"><span class="meta-indicator"></span><span id="viewerSignal">Preparing room…</span></div></div>
+      <div id="viewerAuth" class="auth-card"><div class="ticket-icon">✦</div><div class="eyebrow">ONE PRIVATE SCREENING</div><h2>Your invitation awaits.</h2><p>Enter the room password from your host to join the screening.</p>
+        <form id="joinForm"><label for="viewerPassword">ROOM PASSWORD</label><input id="viewerPassword" type="password" autocomplete="off" placeholder="Enter your room password" required><button id="joinRoom" type="submit" class="button button-primary button-large">ENTER THE THEATER ↗</button></form>
+        <p id="joinError" class="error-text" role="alert" hidden></p>
+      </div>
+      <div id="viewerExperience" class="viewer-experience" hidden>
+        <div class="viewer-theater theater" id="viewerTheater">
+          <video id="remoteVideo" playsinline autoplay aria-label="Live movie stream from host"></video>
+          <div id="viewerOverlay" class="viewer-overlay"><div class="viewer-overlay-content"><div class="screen-icon">✦</div><h2 id="viewerOverlayTitle">Waiting for the curtain to rise</h2><p id="viewerOverlayText">Your host hasn't started sharing yet.</p><button id="playWithSound" class="button button-primary" type="button" hidden>▶ &nbsp; Start watching with sound</button><button id="retryConnection" class="button button-secondary" type="button" hidden>↺ &nbsp; Retry connection</button></div></div>
+          <div class="viewer-video-controls"><div class="video-status"><span class="status-led"></span><span id="viewerPlaybackStatus">WAITING FOR HOST</span></div><div class="video-buttons"><button id="viewerMute" class="round-button" type="button" title="Mute or unmute" aria-label="Mute or unmute">♪</button><input id="viewerVolume" class="volume-slider" type="range" min="0" max="1" step="0.05" value="1" aria-label="Volume"><button id="viewerStatsToggle" class="round-button" type="button" title="Show statistics" aria-label="Stats for Nerds">⌁</button><button id="viewerFullscreen" class="round-button" type="button" title="Fullscreen" aria-label="Fullscreen">⛶</button></div></div>
+        </div>
+        <div id="viewerAudioWarning" class="warning" role="status" hidden></div>
+        <div class="viewer-footer"><span><span class="privacy-dot"></span> Encrypted point-to-point streaming when available</span><button id="leaveRoom" class="text-action" type="button">Leave theater ↗</button></div>
+      </div>
+    </section>
+  </main>
+  <aside id="statsPanel" class="stats-panel" hidden aria-label="Live WebRTC statistics"><div class="stats-heading"><span>⌁ &nbsp; STATS FOR NERDS</span><button id="closeStats" aria-label="Close statistics" type="button">×</button></div><dl id="statsEntries"></dl><p>Network RTT is not end-to-end movie latency. Actual measurements only.</p></aside>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <footer class="site-footer"><span>PRIVATE CINEMA <span class="footer-star">✦</span> THE LITTLE THINGS, TOGETHER</span><span>Share only content you're permitted to share. Protected video may not be capturable.</span></footer>
+</body>
+</html>

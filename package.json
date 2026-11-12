@@ -1,26 +1,26 @@
 {
-  "name": "pelt-party",
-  "version": "1.1.0",
+  "name": "private-cinema",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
+  "description": "Private one-host/one-viewer WebRTC cinema",
+  "engines": { "node": ">=24" },
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
-    "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0",
-    "dev:worker": "npm run build && wrangler dev --ip 0.0.0.0",
-    "deploy": "npm run build && wrangler deploy",
-    "test": "node --test tests/*.test.mjs",
-    "test:browser": "node scripts/browser-test.mjs",
-    "test:socket": "node scripts/socket-test.mjs",
-    "check": "npm test && npm run build",
-    "test:integration": "node scripts/integration-runner.mjs"
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test tests/*.test.js",
+    "test:browser": "playwright test",
+    "check": "npm test && npm run test:browser"
   },
   "dependencies": {
-    "three": "0.186.1"
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.0.1",
+    "helmet": "^8.1.0",
+    "socket.io": "^4.8.1"
   },
   "devDependencies": {
-    "vite": "^7.1.0",
-    "wrangler": "^4.0.0",
-    "@playwright/test": "^1.55.0"
+    "@playwright/test": "^1.55.0",
+    "socket.io-client": "^4.8.1"
   }
 }

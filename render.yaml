@@ -1,0 +1,23 @@
+# Test deployment on Render (STUN-only until TURN is configured).
+# This provisions an HTTPS Node/Socket.IO web service, not a TURN relay.
+services:
+  - type: web
+    name: private-cinema
+    runtime: node
+    plan: free
+    buildCommand: npm install --omit=dev --ignore-scripts --no-audit --no-fund
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: STUN_URL
+        value: stun:stun.l.google.com:19302
+      - key: ALLOW_STUN_ONLY_TEST_MODE
+        value: "true"
+      - key: ENABLE_DEBUG_LOGGING
+        value: "false"
