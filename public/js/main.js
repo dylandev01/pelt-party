@@ -64,8 +64,19 @@ async function setupHost(created = null) {
   const handlers = {
     'room:ready': data => {
       text('hostSignal', 'Room connected'); onPresence(data);
-      // Refresh destroys browser capture, so correct stale server stream state.
-      if (!capture?.stream && data.stream?.active) session?.send('stream:state', { active: false, audio: false }).catch(() => {});
+      // Reconcile state in BOTH directions. A capture started while signaling
+      // was down must be announced when the socket reconnects, without a fresh
+      // getDisplayMedia() prompt or stopping the already-live capture.
+      const active = Boolean(capture?.stream?.getVideoTracks().some(track => track.readyState === 'live'));
+      const desired = { active, audio: active && capture.audioAvailable };
+      if (data.stream?.active !== desired.active || data.stream?.audio !== desired.audio) {
+        session?.send('stream:state', desired).catch(error => {
+          console.warn('Stream status reconciliation failed:', error.message);
+          text('hostWarning', 'Sharing is captured, but room signaling is still reconnecting.');
+          show('hostWarning');
+        });
+      }
+      if (active) refreshHostMediaState();
     },
     'room:presence': onPresence,
     'stream:state': data => { hostStream = data; refreshHostMediaState(); },
@@ -75,8 +86,19 @@ async function setupHost(created = null) {
     'webrtc:ice-candidate': data => peer?.receiveCandidate(data),
     'webrtc:ice-restart-request': data => peer?.restartRequested(data),
     'room:ended': endNotice,
-    onConnection: connected => text('hostSignal', connected ? 'Room connected' : 'Signaling reconnecting…'),
-    onError: error => { text('hostSignal', humanError(error)); }
+    onConnection: (connected, reason) => {
+      text('hostSignal', connected ? 'Room connected' : reason === 'io server disconnect' ? 'Room connection ended — reload page' : 'Signaling reconnecting…');
+      if (connected) { show('hostWarning', false); refreshHostMediaState(); }
+    },
+    onRetry: () => text('hostSignal', 'Reconnecting to room…'),
+    onError: error => {
+      const message = humanError(error);
+      text('hostSignal', message);
+      if (['ROOM_NOT_FOUND', 'UNAUTHORIZED'].includes(error?.message)) {
+        text('hostWarning', `${message} Return home and create a new room.`); show('hostWarning');
+      }
+      console.warn('Signaling connection issue:', error?.message);
+    }
   };
   session = createSocket(roomId, handlers);
   peer = new PeerController({ roomId, role: 'host', socket: session.socket, instanceId: session.instanceId,
@@ -122,7 +144,16 @@ async function startSharing() {
     show('previewHidden', !previewVisible);
     text('togglePreview', previewVisible ? 'Hide preview' : 'Show preview');
     hostStream = { active: true, audio: capture.audioAvailable };
-    await session.send('stream:state', hostStream);
+    // The local capture has succeeded even if the signaling socket went away.
+    // Do not dispose of the capture for a temporary network failure.
+    try {
+      await session.send('stream:state', hostStream);
+    } catch (error) {
+      text('hostWarning', 'Screen capture started, but the room is disconnected. Reconnecting signaling automatically; keep this tab open.');
+      show('hostWarning');
+      refreshHostMediaState();
+      return;
+    }
     if (!capture.audioAvailable) {
       text('hostWarning', 'Video is sharing, but no playback audio was captured. Try sharing a browser tab and enable “Share tab audio”, then choose Change source.');
       show('hostWarning');
@@ -256,8 +287,9 @@ async function enterViewer(status) {
     'webrtc:offer': data => peer?.receiveOffer(data),
     'webrtc:ice-candidate': data => peer?.receiveCandidate(data),
     'room:ended': endNotice,
-    onConnection: connected => text('viewerSignal', connected ? 'Connected to theater' : 'Signaling reconnecting…'),
-    onError: error => text('viewerSignal', humanError(error))
+    onConnection: (connected, reason) => text('viewerSignal', connected ? 'Connected to theater' : reason === 'io server disconnect' ? 'Connection ended — reload page' : 'Signaling reconnecting…'),
+    onRetry: () => text('viewerSignal', 'Reconnecting to theater…'),
+    onError: error => { text('viewerSignal', humanError(error)); console.warn('Viewer signaling issue:', error?.message); }
   };
   session = createSocket(roomId, handlers);
   peer = new PeerController({ roomId, role: 'viewer', socket: session.socket, instanceId: session.instanceId,
