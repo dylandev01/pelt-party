@@ -76,3 +76,34 @@ test('signaling is authorized and role-specific, rejects stale epochs and invali
     assert.equal((await ack(hostSocket, 'webrtc:offer', { ...offer, negotiationId: crypto.randomUUID() })).ok, false);
   } finally { await h.done(); }
 });
+
+test('Reconnect stream from either role rotates a shared epoch without kicking either participant', async () => {
+  const h = await harness();
+  try {
+    const created = await h.call('/api/rooms', 'POST', {}), id = created.data.roomId;
+    const joined = await h.call(`/api/rooms/${id}/join`, 'POST', { password: created.data.password });
+    const host = await h.joinSocket(id, created.cookie);
+    const viewer = await h.joinSocket(id, joined.cookie);
+    const room = h.rooms.get(id);
+    const before = room.epoch;
+    room.stream = { active: true, audio: true }; // Browser-owned capture remains independent of connection epoch.
+    const hostReset = eventOnce(host, 'peer:reset');
+    const viewerReset = eventOnce(viewer, 'peer:reset');
+    const rebuilt = await ack(viewer, 'peer:rebuild-request', { connectionEpoch: before });
+    assert.equal(rebuilt.ok, true);
+    assert.equal(rebuilt.alreadyRecovering, undefined);
+    assert.notEqual(room.epoch, before);
+    assert.equal((await hostReset).connectionEpoch, room.epoch);
+    assert.equal((await viewerReset).connectionEpoch, room.epoch);
+    assert.equal(host.connected, true);
+    assert.equal(viewer.connected, true);
+    assert.equal(room.hostSocketId, host.id);
+    assert.equal(room.viewerSocketId, viewer.id);
+    assert.deepEqual(room.stream, { active: true, audio: true });
+    const duplicate = await ack(host, 'peer:rebuild-request', { connectionEpoch: room.epoch });
+    assert.equal(duplicate.ok, true);
+    assert.equal(duplicate.alreadyRecovering, true);
+    assert.equal(room.epoch, rebuilt.connectionEpoch);
+    assert.equal((await ack(host, 'peer:rebuild-request', { connectionEpoch: before })).error, 'STALE_EPOCH');
+  } finally { await h.done(); }
+});

@@ -11,6 +11,7 @@ let session = null, peer = null, stats = null, capture = null;
 let roomId = route?.[2] || null, mode = route?.[1] === 'r' ? 'viewer' : route?.[1] || 'landing';
 let viewerHasAudio = false, hostStream = { active: false, audio: false }, hostPeerState = 'idle';
 let previewVisible = false, roomEnded = false, guestHere = false;
+let reconnectPending = false;
 
 function teardown() {
   stats?.stop(); stats = null;
@@ -63,7 +64,9 @@ async function setupHost(created = null) {
     onEnded: () => { stopSharing().catch(fail); toast('Sharing stopped from the browser. Your room is still open.'); } });
   const handlers = {
     'room:ready': data => {
-      text('hostSignal', 'Room connected'); onPresence(data);
+      text('hostSignal', 'Room connected');
+      if (peer && data.connectionEpoch && peer.epoch !== data.connectionEpoch) peer.reset(data.connectionEpoch);
+      onPresence(data);
       // Reconcile state in BOTH directions. A capture started while signaling
       // was down must be announced when the socket reconnects, without a fresh
       // getDisplayMedia() prompt or stopping the already-live capture.
@@ -279,7 +282,11 @@ async function enterViewer(status) {
     }
   }
   const handlers = {
-    'room:ready': data => { text('viewerSignal', 'Connected to theater'); onPresenceViewer(data); },
+    'room:ready': data => {
+      text('viewerSignal', 'Connected to theater');
+      if (peer && data.connectionEpoch && peer.epoch !== data.connectionEpoch) peer.reset(data.connectionEpoch);
+      onPresenceViewer(data);
+    },
     'room:presence': onPresenceViewer,
     'stream:state': updateViewerStream,
     'peer:reset': data => { peer?.reset(data.connectionEpoch); overlay('Reconnecting picture', 'Restoring your private stream…'); },
@@ -324,11 +331,52 @@ $('viewerFullscreen').addEventListener('click', async () => {
     else throw new Error('Fullscreen is not supported in this browser');
   } catch (e) { toast(e.message); }
 });
-$('retryConnection').addEventListener('click', () => {
-  if (!peer || !session) return;
-  session.socket.disconnect(); session.socket.connect();
-  overlay('Reconnecting', 'Requesting a fresh connection from the host…');
-});
+// A safe reconnect keeps the current page, host capture, authenticated room,
+// and viewer seat. The server rotates an epoch for BOTH peers atomically.
+async function reconnectStream() {
+  if (!session || !peer || roomEnded || reconnectPending) return;
+  reconnectPending = true;
+  const buttons = ['hostReconnect', 'viewerReconnect', 'retryConnection'];
+  buttons.forEach(id => { $(id).disabled = true; });
+  if (mode === 'host') {
+    text('hostSignal', 'Reconnecting stream…');
+    text('hostConnection', 'Reconnecting to viewer…');
+  } else {
+    text('viewerSignal', 'Reconnecting stream…');
+    overlay('Reconnecting your stream', 'Keeping your seat while we restore the connection…');
+  }
+  try {
+    const result = await session.reconnect();
+    if (result.reconnected) {
+      // The server already reconciles both peers on an authenticated reconnect.
+      toast('Signaling restored. Rebuilding your stream…');
+      return;
+    }
+    if (!peer.epoch) throw new Error('The room is still connecting. Try again in a moment.');
+    const answer = await session.send('peer:rebuild-request', { connectionEpoch: peer.epoch });
+    if (answer.alreadyRecovering) {
+      toast('Your connection is already recovering. Give it a moment.');
+    } else {
+      toast('Fresh connection requested. Screen sharing remains active.');
+    }
+  } catch (error) {
+    const message = humanError(error);
+    if (mode === 'host') {
+      text('hostSignal', 'Reconnect failed');
+      text('hostWarning', `${message} You can try Reconnect stream again; your screen sharing is preserved.`);
+      show('hostWarning');
+    } else {
+      text('viewerSignal', 'Reconnect failed');
+      overlay('Unable to reconnect', message, { retry: true });
+    }
+  } finally {
+    reconnectPending = false;
+    buttons.forEach(id => { $(id).disabled = false; });
+  }
+}
+$('hostReconnect').addEventListener('click', reconnectStream);
+$('viewerReconnect').addEventListener('click', reconnectStream);
+$('retryConnection').addEventListener('click', reconnectStream);
 $('leaveRoom').addEventListener('click', async () => {
   try { await api.leave(roomId); } catch (e) { fail(e); }
   teardown(); location.href = '/';

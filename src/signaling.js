@@ -109,7 +109,11 @@ export function attachSignaling(io, store, { disconnectGraceMs = 15_000 } = {}) 
     socket.on('peer:rebuild-request', (payload, ack) => allow('peer:rebuild-request', payload, ack, (r, p, reply) => {
       if (!p || p.connectionEpoch !== r.epoch) return reply(fail('STALE_EPOCH'));
       // Coordinate a new epoch for BOTH clients instead of locally rebuilding incompatible peers.
-      if (r.lastRebuildAt && Date.now() - r.lastRebuildAt < 10_000) return reply(fail('REBUILD_THROTTLED'));
+      if (r.lastRebuildAt && Date.now() - r.lastRebuildAt < 8_000) {
+        // Both users may press Reconnect; report the in-flight recovery without
+        // generating another incompatible WebRTC epoch or a confusing failure.
+        return reply(ok({ connectionEpoch: r.epoch, alreadyRecovering: true }));
+      }
       r.lastRebuildAt = Date.now(); store.rotateEpoch(r); resetPeers(r); reply(ok({ connectionEpoch: r.epoch }));
     }));
     socket.on('webrtc:ice-restart-request', (payload, ack) => allow('webrtc:ice-restart-request', payload, ack, (r, p, reply) => {

@@ -37,6 +37,30 @@ export function createSocket(roomId, events = {}) {
     socket,
     instanceId,
     send: (event, payload, timeout) => emitWithAck(socket, event, payload, timeout),
+    // A browser refresh tears down screen capture. This reconnects only signaling
+    // and waits for the server to restore authenticated room membership.
+    async reconnect(timeoutMs = 15000) {
+      if (socket.connected) return { reconnected: false };
+      return new Promise((resolve, reject) => {
+        let timer;
+        const cleanup = () => {
+          clearTimeout(timer);
+          socket.off('room:ready', onReady);
+          socket.off('connect_error', onError);
+        };
+        const onReady = () => { cleanup(); resolve({ reconnected: true }); };
+        const onError = error => {
+          if (/^(ROOM_NOT_FOUND|UNAUTHORIZED|INVALID_ROOM)$/.test(error?.message || '')) {
+            cleanup(); reject(error);
+          }
+          // Transient failures keep retrying until our bounded timeout.
+        };
+        socket.on('room:ready', onReady);
+        socket.on('connect_error', onError);
+        timer = setTimeout(() => { cleanup(); reject(new Error('SIGNALING_DISCONNECTED')); }, timeoutMs);
+        socket.connect();
+      });
+    },
     close() {
       clearInterval(activity);
       socket.removeAllListeners();

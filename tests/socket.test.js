@@ -28,3 +28,32 @@ test('Socket.IO starts with polling and upgrades to WebSocket, preserving creden
     session.close();
   } finally { globalThis.window = previous; }
 });
+test('soft reconnect waits for authenticated room:ready and does not tear down live connection', async () => {
+  const priorWindow = globalThis.window;
+  const listeners = new Map();
+  let connectCalls = 0, disconnectCalls = 0;
+  const socket = {
+    connected: true,
+    on(type, callback) { const list = listeners.get(type) || []; list.push(callback); listeners.set(type, list); return this; },
+    off(type, callback) { listeners.set(type, (listeners.get(type) || []).filter(fn => fn !== callback)); return this; },
+    io: { on() {} },
+    connect() { connectCalls++; },
+    disconnect() { disconnectCalls++; },
+    removeAllListeners() { listeners.clear(); },
+    emitEvent(type, data) { for (const listener of [...(listeners.get(type) || [])]) listener(data); }
+  };
+  globalThis.window = { io: () => socket };
+  try {
+    const session = createSocket('r');
+    assert.deepEqual(await session.reconnect(), { reconnected: false });
+    assert.equal(disconnectCalls, 0);
+    socket.connected = false;
+    const recovery = session.reconnect();
+    assert.equal(connectCalls, 2);
+    socket.connected = true;
+    socket.emitEvent('room:ready', { connectionEpoch: 'new' });
+    assert.deepEqual(await recovery, { reconnected: true });
+    assert.equal(disconnectCalls, 0);
+    session.close();
+  } finally { globalThis.window = priorWindow; }
+});
